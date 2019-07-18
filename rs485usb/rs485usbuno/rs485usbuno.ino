@@ -82,26 +82,21 @@ uint8_t b;
 
 void setup() {
 
-
 #ifdef PIN_INDICATOR_LED_DIRECTION_A
   indleda.initialize(0);
   indleda.fullcycle();
 #endif
-
 
 #ifdef PIN_INDICATOR_LED_DIRECTION_B
   indledb.initialize(0);
   indledb.fullcycle();
 #endif
 
-
   Serial.begin(BAUD_RATE);
   while (!Serial) { ; /* wait for serial USB-port to connect */ }
 
-
   // set the data rate for the SoftwareSerial port connected to the TTL to RS-485 module
   softser.begin(BAUD_RATE);
-
 
 #ifdef USING_MAX_485
 #ifdef RS485_MASTER
@@ -113,7 +108,6 @@ void setup() {
   max485.sending(issending);
 #endif
 }
-
 
 void loop() {
 #ifdef SEND_ALL_BUFFERED

@@ -1,4 +1,4 @@
-/*
+  /*
  * Name:    rs485usb.ino
  * Created: 7/14/2019 2:23:09 AM
  * Author:  SigurdssonGO
@@ -16,28 +16,28 @@
 
 
 #include <SoftwareSerial.h>
+
 #include <MAX485.h>
 
 
-// 4->RE (MAX485 PIN 2), 7->DE (MAX485 PIN 3)
+// 6->RE (MAX485 PIN 2), 7->DE (MAX485 PIN 3)
 /* Driver Enable set to HIGH to enable transmitting */
-//#define PIN_RS485_RE    8
+//#define PIN_RS485_RE    6
 /* Receiver Enable set to LOW to enable receive */
-//#define PIN_RS485_DE    9
+//#define PIN_RS485_DE    7
 
 
 // Same pin for RE and DE 7->RE (MAX485 PIN 2), 7->DE (MAX485 PIN 3)
-#define PIN_RS485_TE    8
+#define PIN_RS485_TE     7
 
 
 
 // RX(10)->RO (MAX845 PIN 1), TX(11)->DI (MAX845 PIN 4)
-#define PIN_SOFT_RX_RO  10
-#define PIN_SOFT_TX_DI  11
+#define PIN_SOFT_RX_RO  15
+#define PIN_SOFT_TX_DI   8
 
-
-#define PIN_INDICATOR_LED_DIRECTION_A 5
-#define PIN_INDICATOR_LED_DIRECTION_B 6
+#define PIN_INDICATOR_LED_DIRECTION_A 4
+#define PIN_INDICATOR_LED_DIRECTION_B 5
 
 
 #define BAUD_RATE     9600
@@ -47,7 +47,6 @@
 
 
 SoftwareSerial softser(PIN_SOFT_RX_RO, PIN_SOFT_TX_DI);
-
 
 #if (defined(PIN_RS485_RE) && defined(PIN_RS485_DE)) || defined(PIN_RS485_TE)
 #define USING_MAX_485
@@ -82,26 +81,21 @@ uint8_t b;
 
 void setup() {
 
-
 #ifdef PIN_INDICATOR_LED_DIRECTION_A
   indleda.initialize(0);
   indleda.fullcycle();
 #endif
-
 
 #ifdef PIN_INDICATOR_LED_DIRECTION_B
   indledb.initialize(0);
   indledb.fullcycle();
 #endif
 
-
   Serial.begin(BAUD_RATE);
   while (!Serial) { ; /* wait for serial USB-port to connect */ }
 
-
   // set the data rate for the SoftwareSerial port connected to the TTL to RS-485 module
   softser.begin(BAUD_RATE);
-
 
 #ifdef USING_MAX_485
 #ifdef RS485_MASTER
@@ -113,7 +107,6 @@ void setup() {
   max485.sending(issending);
 #endif
 }
-
 
 void loop() {
 #ifdef SEND_ALL_BUFFERED
