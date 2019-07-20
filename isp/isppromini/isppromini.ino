@@ -34,7 +34,6 @@
 #include "Arduino.h"
 #undef SERIAL
 
-
 #define PROG_FLICKER true
 
 // Configure SPI clock (in Hz).
