@@ -17,26 +17,13 @@
 #include <SoftwareSerial.h>
 #include <MAX485.h>
 
-// 4->RE (MAX485 PIN 2), 7->DE (MAX485 PIN 3)
-/* Driver Enable set to HIGH to enable transmitting */
-//#define PIN_RS485_RE    8
-/* Receiver Enable set to LOW to enable receive */
-//#define PIN_RS485_DE    9
-
-// Same pin for RE and DE 7->RE (MAX485 PIN 2), 7->DE (MAX485 PIN 3)
-#define PIN_RS485_TE    8
-
-
-// RX(10)->RO (MAX845 PIN 1), TX(11)->DI (MAX845 PIN 4)
-#define PIN_SOFT_RX_RO  10
-#define PIN_SOFT_TX_DI  11
-
-#define PIN_INDICATOR_LED_DIRECTION_A 5
-#define PIN_INDICATOR_LED_DIRECTION_B 6
+#include "pinuno.h"
 
 #define BAUD_RATE     9600
 
 #define SEND_ALL_BUFFERED
+
+//#define WAIT_FOR_SERIAL
 
 SoftwareSerial softser(PIN_SOFT_RX_RO, PIN_SOFT_TX_DI);
 
@@ -52,13 +39,16 @@ MAX485 max485(PIN_RS485_RE, PIN_RS485_DE);
 bool issending = false, isreceiving = false;
 #endif
 
+
 #if defined(PIN_INDICATOR_LED_DIRECTION_A) || defined(PIN_INDICATOR_LED_DIRECTION_B)
 #include <arduinosinled.h>
 #endif
 
+
 #ifdef PIN_INDICATOR_LED_DIRECTION_A
 fds::SinLed indleda(PIN_INDICATOR_LED_DIRECTION_A);
 #endif
+
 
 #ifdef PIN_INDICATOR_LED_DIRECTION_B
 fds::SinLed indledb(PIN_INDICATOR_LED_DIRECTION_B);
@@ -79,7 +69,9 @@ void setup() {
 #endif
 
   Serial.begin(BAUD_RATE);
+#ifdef WAIT_FOR_SERIAL
   while (!Serial) { ; /* wait for serial USB-port to connect */ }
+#endif
 
   // set the data rate for the SoftwareSerial port connected to the TTL to RS-485 module
   softser.begin(BAUD_RATE);
