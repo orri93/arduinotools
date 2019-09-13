@@ -50,7 +50,4 @@
 #define PIN_HOLDING_REGISTRY_1  5  /* PWM */
 #define PIN_HOLDING_REGISTRY_2  6  /* PWM */
 
-
-
-
 #endif

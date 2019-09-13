@@ -1,5 +1,5 @@
-#ifndef _FDS_RS485_USB_PIN_UNO_H_
-#define _FDS_RS485_USB_PIN_UNO_H_
+#ifndef _FDS_RS485_SPY_PIN_UNO_H_
+#define _FDS_RS485_SPY_PIN_UNO_H_
 
 // 4->RE (MAX485 PIN 2), 7->DE (MAX485 PIN 3)
 /* Driver Enable set to HIGH to enable transmitting */

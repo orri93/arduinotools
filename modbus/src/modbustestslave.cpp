@@ -446,14 +446,12 @@ void coil(const line& line, const bool& status) {
     ::gos::atl::format::message(
       *buffer,
       TEXT_COIL_HIGH,
-      sizeof(TEXT_COIL_HIGH),
-      &details::ida);
+      sizeof(TEXT_COIL_HIGH));
   } else {
     ::gos::atl::format::message(
       *buffer,
       TEXT_COIL_LOW,
-      sizeof(TEXT_COIL_LOW),
-      &details::idb);
+      sizeof(TEXT_COIL_LOW));
   }
 }
 }
