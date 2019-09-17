@@ -25,6 +25,10 @@
  * ********************************************************/
 
 #include <ModbusSlave.h>
+#include <FixedPoints.h>
+#include <FixedPointsCommon.h>
+#include <FixedPoints/SFixed.h>
+
 #include <arduinosinled.h>
 #include <gatldisplay.h>
 #include <gatlformat.h>
@@ -43,6 +47,9 @@
 #define TEXT_COIL_HIGH "High"
 #define TEXT_COIL_LOW "Low"
 
+namespace fp = ::FixedPoints;
+
+typedef fp::SQ15x16 fpsq;
 
 #ifdef PIN_LED_MODBUS_READ
 fds::SinLed ledmodbusread(PIN_LED_MODBUS_READ);
@@ -71,6 +78,8 @@ enum class line { one, two };
 void begin();
 void loop();
 namespace show {
+void logo();
+void error(const char* message);
 void display(bool message = false);
 void registry();
 void coil(const line& line, const bool& status);
@@ -88,13 +97,21 @@ enum DiscreteInput {
 };
 
 enum HoldingRegistry {
-  HoldingRegistry1 = 0x0000,
-  HoldingRegistry2 = 0x0001
+  HoldingRegistry1     = 0x0000,
+  HoldingRegistry2     = 0x0001,
+  HoldingRegistry1FpLb = 0x0002,
+  HoldingRegistry1FpHb = 0x0003,
+  HoldingRegistry2FpLb = 0x0004,
+  HoldingRegistry2FpHb = 0x0005,
 };
 
 enum InputRegistry {
-  InputRegistry1 = 0x0000,
-  InputRegistry2 = 0x0001
+  InputRegistry1     = 0x0000,
+  InputRegistry2     = 0x0001,
+  InputRegistry1FpLb = 0x0002,
+  InputRegistry1FpHb = 0x0003,
+  InputRegistry2FpLb = 0x0004,
+  InputRegistry2FpHb = 0x0005,
 };
 
 static uint16_t address, i;
@@ -105,6 +122,11 @@ uint16_t holdingregistry1 = 0x00, holdingregistry2 = 0xff;
 static uint8_t result;
 
 Modbus slave(MODBUS_SLAVE_ID, PIN_RS485_MODBUS_TE);
+
+uint16_t fplb(const uint16_t& value, const uint16_t& maximum) {
+  fpsq fixed = static_cast<fpsq>(value);
+  fixed = fixed / static_cast<fpsq>(maximum);
+}
 
 /* 0x01 Read Coils */
 uint8_t read_coils(uint8_t fc, uint16_t startaddress, uint16_t length) {
@@ -173,6 +195,8 @@ uint8_t read_holding_registers(uint8_t fc, uint16_t startaddress, uint16_t lengt
     case HoldingRegistry2:
       slave.writeRegisterToBuffer(i, holdingregistry2);
       break;
+    case HoldingRegistry1FpLb:
+      slave.writeRegisterToBuffer(i, );
     default:
       result = STATUS_ILLEGAL_DATA_ADDRESS;
       break;
@@ -304,6 +328,16 @@ namespace gm = ::gos::modbus;
 
 void setup() {
   gm::display::begin();
+  if (sizeof(fp) == 4) {
+    gm::display::logo();
+  } else {
+    char message[12];
+    sprintf(message, "FPE %d", sizeof(fp));
+    gm::display::show::error(message);
+    while (true) {
+      delay(10);
+    }
+  }
 
 #ifdef PIN_HOLDING_REGISTRY_1
   ledholdingregistry1.initialize();
@@ -392,18 +426,13 @@ namespace details {
 ::gos::atl::buffer::Holder<> ida(TEXT_ID_A, sizeof(TEXT_ID_A));
 ::gos::atl::buffer::Holder<> idb(TEXT_ID_B, sizeof(TEXT_ID_B));
 ::gos::atl::display::Oled<> oled;
-::gos::atl::display::line::Two<> twoline(oled);
+::gos::atl::display::asynchronous::line::Two<> twoline(oled);
+::gos::atl::display::asynchronous::line::One<> oneline(oled);
 unsigned long messagetick = 0;
 }
-
 void begin() {
   details::oled.U8g2->begin();
-  details::oled.logo(
-    fds_modbus_test_slave_logo_width,
-    fds_modbus_test_slave_logo_height,
-    fds_modbus_test_slave_logo_bits);
 }
-
 void loop() {
   if (
     details::messagetick > 0 &&
@@ -413,13 +442,22 @@ void loop() {
   }
   details::twoline.loop();
 }
-
 namespace show {
+void logo() {
+  ::gos::atl::display::synchronous::logo(
+    details::oled,
+    fds_modbus_test_slave_logo_width,
+    fds_modbus_test_slave_logo_height,
+    fds_modbus_test_slave_logo_bits)
+}
 void display(bool message = false) {
   details::twoline.display(details::buffer1, details::buffer2);
   if (message) {
     details::messagetick = millis();
   }
+}
+void error(const char* message) {
+  ::gos::atl::display::synchronous::line::one(details::oled, message);
 }
 void registry() {
   ::gos::atl::format::integer(

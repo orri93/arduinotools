@@ -16,12 +16,11 @@ add_executable(ExecutArduinoToolsTests
   modbustestslavetest.cpp)
 
 include_directories(
-  ${gos_arduino_sketches_unit_testing_include}
-  "${gos_arduino_libraries_dir}/GosTemplates/src"
-  "${gos_arduino_unit_testing_sublibraries_dir}/arduinotick/src")
+  ${gos_arduino_tools_unit_testing_include})
 
 target_link_libraries(ExecutArduinoToolsTests
   ${gos_arduino_sketches_unit_testing_target_link_libraries}
   libarduinotick)
 
-add_test(NAME SketchesTestBoardTests COMMAND ExecuteArduinoSketchesTestBoardTests)
+add_test(NAME ModbusTestSlaveTests
+  COMMAND ExecutArduinoToolsTests)

@@ -7,20 +7,22 @@
 
 #include <modbus/modbustestslave/modbustestslave.ino>
 
+namespace gmdd = ::gos::modbus::display::details;
+
 class ModbusSlaveTestFixture : public ::testing::Test {
 public:
   void SetUp() override {
     arduinomock = arduinoMockInstance();
-    if (oled.U8g2 == nullptr) {
-      oled.U8g2 = new U8g2;
+    if (gmdd::oled.U8g2 == nullptr) {
+      gmdd::oled.U8g2 = new U8g2;
     }
   }
 
   void TearDown() override {
     releaseArduinoMock();
-    if (oled.U8g2) {
-      delete oled.U8g2;
-      oled.U8g2 = nullptr;
+    if (gmdd::oled.U8g2) {
+      delete gmdd::oled.U8g2;
+      gmdd::oled.U8g2 = nullptr;
     }
   }
 
@@ -30,7 +32,7 @@ public:
 };
 
 TEST_F(ModbusSlaveTestFixture, Setup) {
-  EXPECT_CALL(*(oled.U8g2), begin()).
+  EXPECT_CALL(*(gmdd::oled.U8g2), begin()).
     Times(testing::AtLeast(1));
 
   setup();
