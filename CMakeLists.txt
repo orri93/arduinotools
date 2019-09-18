@@ -8,7 +8,6 @@ set(gos_arduino_tools_unit_testing_include
   "${CMAKE_CURRENT_SOURCE_DIR}")
 
 add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-add_compile_definitions(FIXED_POINTS_USE_NAMESPACE)
 add_compile_definitions(FIXED_POINTS_NO_RANDOM)
 add_compile_definitions(FIXED_POINTS_NO_CONSTANTS)
 

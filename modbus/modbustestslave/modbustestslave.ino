@@ -47,9 +47,7 @@
 #define TEXT_COIL_HIGH "High"
 #define TEXT_COIL_LOW "Low"
 
-namespace fp = ::FixedPoints;
-
-typedef fp::SQ15x16 fpsq;
+typedef SQ15x16 fpsq;
 
 #ifdef PIN_LED_MODBUS_READ
 fds::SinLed ledmodbusread(PIN_LED_MODBUS_READ);
