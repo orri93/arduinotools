@@ -31,6 +31,7 @@
 
 #include <arduinosinled.h>
 #include <gatldisplay.h>
+#include <gatlutility.h>
 #include <gatlformat.h>
 
 #include "pinuno.h"
@@ -47,9 +48,9 @@
 #define TEXT_COIL_HIGH "High"
 #define TEXT_COIL_LOW "Low"
 
-namespace fp = ::FixedPoints;
-
-typedef fp::SQ15x16 fpsq;
+namespace gatl = ::gos::atl;
+namespace gatlu = ::gos::atl::utility;
+namespace gatlunp = ::gos::atl::utility::number::part;
 
 #ifdef PIN_LED_MODBUS_READ
 fds::SinLed ledmodbusread(PIN_LED_MODBUS_READ);
@@ -72,6 +73,8 @@ fds::SinLed ledholdingregistry2(PIN_HOLDING_REGISTRY_2);
 
 namespace gos {
 namespace modbus {
+
+typedef SQ15x16 fpsq;
 
 namespace display {
 enum class line { one, two };
@@ -97,8 +100,8 @@ enum DiscreteInput {
 };
 
 enum HoldingRegistry {
-  HoldingRegistry1     = 0x0000,
-  HoldingRegistry2     = 0x0001,
+  HoldingRegistry1 = 0x0000,
+  HoldingRegistry2 = 0x0001,
   HoldingRegistry1FpLb = 0x0002,
   HoldingRegistry1FpHb = 0x0003,
   HoldingRegistry2FpLb = 0x0004,
@@ -106,15 +109,29 @@ enum HoldingRegistry {
 };
 
 enum InputRegistry {
-  InputRegistry1     = 0x0000,
-  InputRegistry2     = 0x0001,
+  InputRegistry1 = 0x0000,
+  InputRegistry2 = 0x0001,
   InputRegistry1FpLb = 0x0002,
   InputRegistry1FpHb = 0x0003,
   InputRegistry2FpLb = 0x0004,
   InputRegistry2FpHb = 0x0005,
 };
 
-static uint16_t address, i;
+const size_t HoldingAddressesCount = 2;
+const size_t InputAddressesCount = 3;
+const uint16_t HoldingRegistry1Addresses[HoldingAddressesCount] = {
+  HoldingRegistry1FpLb, HoldingRegistry1FpHb };
+const uint16_t HoldingRegistry2Addresses[HoldingAddressesCount] = {
+  HoldingRegistry2FpLb, HoldingRegistry2FpHb };
+const uint16_t InputRegistry1Addresses[InputAddressesCount] = {
+  InputRegistry1, InputRegistry1FpLb, InputRegistry1FpHb };
+const uint16_t InputRegistry2Addresses[InputAddressesCount] = {
+  InputRegistry2, InputRegistry2FpLb, InputRegistry2FpHb };
+
+int analog1, analog2;
+fpsq fpvalue1, fpvalue2;
+
+static uint16_t address, i, value1, value2;
 
 bool coil1 = false, coil2 = true;
 uint16_t holdingregistry1 = 0x00, holdingregistry2 = 0xff;
@@ -123,13 +140,14 @@ static uint8_t result;
 
 Modbus slave(MODBUS_SLAVE_ID, PIN_RS485_MODBUS_TE);
 
-uint16_t fplb(const uint16_t& value, const uint16_t& maximum) {
-  fpsq fixed = static_cast<fpsq>(value);
-  fixed = fixed / static_cast<fpsq>(maximum);
-}
+fpsq tofp(const uint16_t& value, const uint16_t& maximum);
+uint16_t fromfp(const fpsq& value, const uint16_t& maximum);
 
 /* 0x01 Read Coils */
-uint8_t read_coils(uint8_t fc, uint16_t startaddress, uint16_t length) {
+uint8_t read_coils(
+  uint8_t fc,
+  uint16_t startaddress,
+  uint16_t length) {
 #ifdef PIN_LED_MODBUS_READ
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
@@ -155,7 +173,10 @@ uint8_t read_coils(uint8_t fc, uint16_t startaddress, uint16_t length) {
 }
 
 /* 0x02 Read Discrete Inputs */
-uint8_t read_discrete_inputs(uint8_t fc, uint16_t startaddress, uint16_t length) {
+uint8_t read_discrete_inputs(
+  uint8_t fc,
+  uint16_t startaddress,
+  uint16_t length) {
 #ifdef PIN_LED_MODBUS_READ
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
@@ -181,11 +202,28 @@ uint8_t read_discrete_inputs(uint8_t fc, uint16_t startaddress, uint16_t length)
 }
 
 /* 0x03 Read Multiple Holding Registers */
-uint8_t read_holding_registers(uint8_t fc, uint16_t startaddress, uint16_t length) {
+uint8_t read_holding_registers(
+  uint8_t fc,
+  uint16_t startaddress,
+  uint16_t length) {
 #ifdef PIN_LED_MODBUS_READ
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
   result = STATUS_OK;
+  if(gatlu::range::isonememberof(
+    HoldingRegistry1Addresses,
+    HoldingAddressesCount,
+    startaddress,
+    length)) {
+    fpvalue1 = tofp(holdingregistry1, UINT16_MAX);
+  }
+  if(gatlu::range::isonememberof(
+    HoldingRegistry2Addresses,
+    HoldingAddressesCount,
+    startaddress,
+    length)) {
+    fpvalue2 = tofp(holdingregistry2, UINT16_MAX);
+  }
   for (i = 0; i < length; i++) {
     address = startaddress + i;
     switch (address) {
@@ -196,7 +234,21 @@ uint8_t read_holding_registers(uint8_t fc, uint16_t startaddress, uint16_t lengt
       slave.writeRegisterToBuffer(i, holdingregistry2);
       break;
     case HoldingRegistry1FpLb:
-      slave.writeRegisterToBuffer(i, );
+      slave.writeRegisterToBuffer(i,
+        gatlunp::first<uint16_t>(fpvalue1));
+      break;
+    case HoldingRegistry1FpHb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::second<uint16_t>(fpvalue1));
+      break;
+    case HoldingRegistry2FpLb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::first<uint16_t>(fpvalue2));
+      break;
+    case HoldingRegistry2FpHb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::second<uint16_t>(fpvalue2));
+      break;
     default:
       result = STATUS_ILLEGAL_DATA_ADDRESS;
       break;
@@ -209,19 +261,54 @@ uint8_t read_holding_registers(uint8_t fc, uint16_t startaddress, uint16_t lengt
 }
 
 /* 0x04 Read Input Registers */
-uint8_t read_input_registers(uint8_t fc, uint16_t startaddress, uint16_t length) {
+uint8_t read_input_registers(
+  uint8_t fc,
+  uint16_t startaddress,
+  uint16_t length) {
 #ifdef PIN_LED_MODBUS_READ
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
   result = STATUS_OK;
+  if(gatlu::range::isonememberof(
+    InputRegistry1Addresses,
+    InputAddressesCount,
+    startaddress,
+    length)) {
+    analog1 = analogRead(PIN_INPUT_REGISTRY_1);
+    fpvalue1 = tofp(analog1, 1024);
+  }
+  if(gatlu::range::isonememberof(
+    InputRegistry2Addresses,
+    InputAddressesCount,
+    startaddress,
+    length)) {
+    analog2 = analogRead(PIN_INPUT_REGISTRY_2);
+    fpvalue2 = tofp(analog2, 1024);
+  }
   for (i = 0; i < length; i++) {
     address = startaddress + i;
     switch (address) {
     case InputRegistry1:
-      slave.writeRegisterToBuffer(i, analogRead(PIN_INPUT_REGISTRY_1));
+      slave.writeRegisterToBuffer(i, analog1);
       break;
     case InputRegistry2:
-      slave.writeRegisterToBuffer(i, analogRead(PIN_INPUT_REGISTRY_2));
+      slave.writeRegisterToBuffer(i, analog2);
+      break;
+    case InputRegistry1FpLb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::first<uint16_t>(fpvalue1));
+      break;
+    case InputRegistry1FpHb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::second<uint16_t>(fpvalue1));
+      break;
+    case InputRegistry2FpLb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::first<uint16_t>(fpvalue2));
+      break;
+    case InputRegistry2FpHb:
+      slave.writeRegisterToBuffer(i,
+        gatlunp::second<uint16_t>(fpvalue2));
       break;
     default:
       result = STATUS_ILLEGAL_DATA_ADDRESS;
@@ -235,7 +322,10 @@ uint8_t read_input_registers(uint8_t fc, uint16_t startaddress, uint16_t length)
 }
 
 /* 0x05 Write Single Coil and 0x0f Write Multiple Coils */
-uint8_t write_coils(uint8_t fc, uint16_t startaddress, uint16_t length) {
+uint8_t write_coils(
+  uint8_t fc,
+  uint16_t startaddress,
+  uint16_t length) {
 #ifdef PIN_LED_MODBUS_WRITE
   digitalWrite(PIN_LED_MODBUS_WRITE, HIGH);
 #endif
@@ -279,40 +369,74 @@ uint8_t write_coils(uint8_t fc, uint16_t startaddress, uint16_t length) {
 }
 
 /* 0x06 Write Single Holding Register and 0x10 Write Multiple Holding Registers */
-uint8_t write_holding_registers(uint8_t fc, uint16_t startaddress, uint16_t length) {
+uint8_t write_holding_registers(
+  uint8_t fc,
+  uint16_t startaddress,
+  uint16_t length) {
 #ifdef PIN_LED_MODBUS_WRITE
   digitalWrite(PIN_LED_MODBUS_WRITE, HIGH);
 #endif
   result = STATUS_OK;
-  bool show = false;
+  uint16_t previous1 = holdingregistry1, previous2 = holdingregistry2;
+  fpvalue1 = tofp(holdingregistry1, UINT16_MAX);
+  fpvalue2 = tofp(holdingregistry2, UINT16_MAX);
+  fpsq previous1fp = fpvalue1, previous2fp = fpvalue2;
   for (i = 0; i < length; i++) {
     address = startaddress + i;
     switch (address) {
     case HoldingRegistry1:
       holdingregistry1 = slave.readRegisterFromBuffer(i);
-      show = true;
-#ifdef PIN_HOLDING_REGISTRY_1
-      if (holdingregistry1 >= 0 && holdingregistry1 <= 255) {
-        analogWrite(PIN_HOLDING_REGISTRY_1, holdingregistry1);
-      }
-#endif
       break;
     case HoldingRegistry2:
       holdingregistry2 = slave.readRegisterFromBuffer(i);
-      show = true;
-#ifdef PIN_HOLDING_REGISTRY_2
-      if (holdingregistry2 >= 0 && holdingregistry2 <= 255) {
-        analogWrite(PIN_HOLDING_REGISTRY_2, holdingregistry2);
-      }
-#endif
+      break;
+    case HoldingRegistry1FpLb:
+      gatlunp::apply<uint16_t, fpsq>(
+        fpvalue1,
+        slave.readRegisterFromBuffer(i),
+        gatlunp::type::first);
+      break;
+    case HoldingRegistry1FpHb:
+      gatlunp::apply<uint16_t, fpsq>(
+        fpvalue1,
+        slave.readRegisterFromBuffer(i),
+        gatlunp::type::second);
+      break;
+    case HoldingRegistry2FpLb:
+      gatlunp::apply<uint16_t, fpsq>(
+        fpvalue2,
+        slave.readRegisterFromBuffer(i),
+        gatlunp::type::first);
+      break;
+    case HoldingRegistry2FpHb:
+      gatlunp::apply<uint16_t, fpsq>(
+        fpvalue2,
+        slave.readRegisterFromBuffer(i),
+        gatlunp::type::second);
       break;
     default:
       result = STATUS_ILLEGAL_DATA_ADDRESS;
       break;
     }
   }
-  if (show) {
+  if(fpvalue1 != previous1fp) {
+    holdingregistry1 = fromfp(fpvalue1, UINT16_MAX);
+  }
+  if(fpvalue2 != previous2fp) {
+    holdingregistry2 = fromfp(fpvalue2, UINT16_MAX);
+  }
+  if(previous1 != holdingregistry1 || previous2 != holdingregistry2) {
     display::show::registry();
+#ifdef PIN_HOLDING_REGISTRY_1
+    if (holdingregistry1 >= 0 && holdingregistry1 <= 255) {
+      analogWrite(PIN_HOLDING_REGISTRY_1, holdingregistry1);
+    }
+#endif
+#ifdef PIN_HOLDING_REGISTRY_2
+    if (holdingregistry2 >= 0 && holdingregistry2 <= 255) {
+      analogWrite(PIN_HOLDING_REGISTRY_2, holdingregistry2);
+    }
+#endif
   }
 #ifdef PIN_LED_MODBUS_WRITE
   digitalWrite(PIN_LED_MODBUS_WRITE, LOW);
@@ -328,11 +452,13 @@ namespace gm = ::gos::modbus;
 
 void setup() {
   gm::display::begin();
-  if (sizeof(fp) == 4) {
-    gm::display::logo();
-  } else {
+  int sizeoffpsq = sizeof(::gos::modbus::fpsq);
+  if (sizeoffpsq == 4) {
+    gm::display::show::logo();
+  }
+  else {
     char message[12];
-    sprintf(message, "FPE %d", sizeof(fp));
+    sprintf(message, "FPE %d", sizeoffpsq);
     gm::display::show::error(message);
     while (true) {
       delay(10);
@@ -378,7 +504,9 @@ void setup() {
 #ifdef PIN_DISCRETE_INPUTS_1
   pinMode(PIN_DISCRETE_INPUTS_1, INPUT);
 #endif
+#ifdef PIN_DISCRETE_INPUTS_2
   pinMode(PIN_DISCRETE_INPUTS_2, INPUT);
+#endif
 
   gm::slave.cbVector[CB_READ_COILS] = gm::read_coils;
   gm::slave.cbVector[CB_READ_DISCRETE_INPUTS] = gm::read_discrete_inputs;
@@ -418,6 +546,16 @@ void loop() {
 
 namespace gos {
 namespace modbus {
+
+fpsq tofp(const uint16_t& value, const uint16_t& maximum) {
+  return static_cast<fpsq>(value) / static_cast<fpsq>(maximum);
+}
+
+uint16_t fromfp(const fpsq& value, const uint16_t& maximum) {
+  return static_cast<uint16_t>(
+    (value * static_cast<fpsq>(maximum)).getInteger());
+}
+
 namespace display {
 namespace details {
 ::gos::atl::format::option::Number option;
@@ -448,9 +586,9 @@ void logo() {
     details::oled,
     fds_modbus_test_slave_logo_width,
     fds_modbus_test_slave_logo_height,
-    fds_modbus_test_slave_logo_bits)
+    fds_modbus_test_slave_logo_bits);
 }
-void display(bool message = false) {
+void display(bool message) {
   details::twoline.display(details::buffer1, details::buffer2);
   if (message) {
     details::messagetick = millis();
@@ -484,12 +622,15 @@ void coil(const line& line, const bool& status) {
     ::gos::atl::format::message(
       *buffer,
       TEXT_COIL_HIGH,
-      sizeof(TEXT_COIL_HIGH));
-  } else {
+      sizeof(TEXT_COIL_HIGH),
+      &details::ida);
+  }
+  else {
     ::gos::atl::format::message(
       *buffer,
       TEXT_COIL_LOW,
-      sizeof(TEXT_COIL_LOW));
+      sizeof(TEXT_COIL_LOW),
+      &details::idb);
   }
 }
 }
