@@ -74,7 +74,6 @@ gatl::modbus::Bindings<int32_t> i32;
 gatl::modbus::Bindings<float> f;
 gatl::modbus::Bindings<Fixed> fixed;
 }
-
 }
 
 namespace led {
@@ -222,43 +221,45 @@ uint8_t write_holding_registers(
 namespace gm = ::gos::modbus;
 namespace gmo = ::gos::modbus::objects;
 namespace gmb = ::gos::modbus::binding;
+namespace gmoh = ::gos::modbus::objects::holding;
+namespace gmoi = ::gos::modbus::objects::input;
 namespace gmbh = ::gos::modbus::binding::holding;
 namespace gmbi = ::gos::modbus::binding::input;
 
-void begin() {
-  index = 1; address = 0;
-  gatl::modbus::create(gmb::coil, 2, address, &gmo::coil_01);
-  gatl::modbus::add(gmb::coil, index, address, &gmo::coil_02);
+void setup() {
+  gm::index = 1; gm::address = 0;
+  gatl::modbus::create(gmb::coil, 2, gm::address, &gmo::coil_01);
+  gatl::modbus::add(gmb::coil, gm::index, gm::address, &gmo::coil_02);
 
-  index = 1; address = 0;
-  gatl::modbus::create(gmb::discrete, 2, address, &gmo::discrete_01);
-  gatl::modbus::add(gmb::discrete, index, address, &gmo::discrete_02);
+  gm::index = 1; gm::address = 0;
+  gatl::modbus::create(gmb::discrete, 2, gm::address, &gmo::discrete_01);
+  gatl::modbus::add(gmb::discrete, gm::index, gm::address, &gmo::discrete_02);
 
-  index = 1; address = 0;
-  gatl::modbus::create(gmbh::ui16, 2, address, &gmo::holding::ui16_01);
-  gatl::modbus::add(gmbh::ui16, index, address, &gmo::holding::ui16_02);
-  index = 1;
-  gatl::modbus::create(gmbh::i32, 2, address, &gmo::holding::i32_01);
-  gatl::modbus::add(gmbh::i32, index, address, &gmo::holding::i32_02);
-  index = 1;
-  gatl::modbus::create(gmbh::f, 2, address, &gmo::holding::float_01);
-  gatl::modbus::add(gmbh::f, index, address, &gmo::holding::float_02);
-  index = 1;
-  gatl::modbus::create(gmbh::fixed, 2, address, &gmo::holding::fixed_01);
-  gatl::modbus::add(gmbh::fixed, index, address, &gmo::holding::fixed_02);
+  gm::index = 1; gm::address = 0;
+  gatl::modbus::create(gmbh::ui16, 2, gm::address, &gmoh::ui16_01);
+  gatl::modbus::add(gmbh::ui16, gm::index, gm::address, &gmoh::ui16_02);
+  gm::index = 1;
+  gatl::modbus::create(gmbh::i32, 2, gm::address, &gmoh::i32_01);
+  gatl::modbus::add(gmbh::i32, gm::index, gm::address, &gmoh::i32_02);
+  gm::index = 1;
+  gatl::modbus::create(gmbh::f, 2, gm::address, &gmoh::float_01);
+  gatl::modbus::add(gmbh::f, gm::index, gm::address, &gmoh::float_02);
+  gm::index = 1;
+  gatl::modbus::create(gmbh::fixed, 2, gm::address, &gmoh::fixed_01);
+  gatl::modbus::add(gmbh::fixed, gm::index, gm::address, &gmoh::fixed_02);
 
-  index = 1; address = 0;
-  gatl::modbus::create(gmbi::ui16, 2, address, &gmo::input::ui16_01);
-  gatl::modbus::add(gmbi::ui16, index, address, &gmo::input::ui16_02);
-  index = 1;
-  gatl::modbus::create(gmbi::i32, 2, address, &gmo::input::i32_01);
-  gatl::modbus::add(gmbi::i32, index, address, &gmo::input::i32_02);
-  index = 1;
-  gatl::modbus::create(gmbi::f, 2, address, &gmo::input::float_01);
-  gatl::modbus::add(gmbi::f, index, address, &gmo::input::float_02);
-  index = 1;
-  gatl::modbus::create(gmbi::fixed, 2, address, &gmo::input::fixed_01);
-  gatl::modbus::add(gmbi::fixed, index, address, &gmo::input::fixed_02);
+  gm::index = 1; gm::address = 0;
+  gatl::modbus::create(gmbi::ui16, 2, gm::address, &gmoi::ui16_01);
+  gatl::modbus::add(gmbi::ui16, gm::index, gm::address, &gmoi::ui16_02);
+  gm::index = 1;
+  gatl::modbus::create(gmbi::i32, 2, gm::address, &gmoi::i32_01);
+  gatl::modbus::add(gmbi::i32, gm::index, gm::address, &gmoi::i32_02);
+  gm::index = 1;
+  gatl::modbus::create(gmbi::f, 2, gm::address, &gmoi::float_01);
+  gatl::modbus::add(gmbi::f, gm::index, gm::address, &gmoi::float_02);
+  gm::index = 1;
+  gatl::modbus::create(gmbi::fixed, 2, gm::address, &gmoi::fixed_01);
+  gatl::modbus::add(gmbi::fixed, gm::index, gm::address, &gmoi::fixed_02);
 
   // RS485 control pin must be output
   pinMode(PIN_RS485_MODBUS_TE, OUTPUT);
@@ -276,7 +277,7 @@ void begin() {
   gm::slave.cbVector[CB_WRITE_HOLDING_REGISTERS] = gm::write_holding_registers;
 
   Serial.begin(RS485_BAUD);
-  g::modbus::slave.begin(RS485_BAUD);
+  gm::slave.begin(RS485_BAUD);
 }
 
 void loop() {

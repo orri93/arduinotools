@@ -41,22 +41,6 @@ public:
   std::mutex mutex;
 };
 
-TEST_F(ModbusSlaveTestFixture, Fp) {
-  const uint16_t cv = 93;
-  const uint16_t max = 255;
-  const ::gos::modbus::fpsq cfp = 
-    static_cast<double>(cv) / static_cast<double>(max);
-  
-  ::gos::modbus::fpsq fpv;
-  uint16_t v16b;
-
-  fpv = ::gos::modbus::tofp(cv, max);
-  GOS_ARDUINO_TESTING_EQ_FP(cfp, fpv);
-
-  v16b = ::gos::modbus::fromfp(fpv, max);
-  EXPECT_TRUE(abs(static_cast<int32_t>(cv) - static_cast<int32_t>(v16b)) <= 1);
-}
-
 TEST_F(ModbusSlaveTestFixture, Setup) {
   EXPECT_CALL(*(gmdd::oled.U8g2), begin()).
     Times(testing::Exactly(1));
