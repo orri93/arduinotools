@@ -24,6 +24,8 @@
  *
  * ********************************************************/
 
+#include <EEPROM.h>
+
 #include <ModbusSlave.h>
 #include <FixedPoints.h>
 #include <FixedPointsCommon.h>
@@ -31,6 +33,7 @@
 
 #include <arduinosinled.h>
 #include <gatldisplay.h>
+#include <gatleeprom.h>
 #include <gatlmodbus.h>
 #include <gatlformat.h>
 
@@ -47,6 +50,8 @@
 
 #define TEXT_COIL_HIGH "High"
 #define TEXT_COIL_LOW "Low"
+
+//#define USE_EEPROM
 
 namespace gatl = ::gos::atl;
 namespace gatlb = ::gos::atl::binding;
@@ -99,7 +104,6 @@ uint16_t analog1 = 0x00, analog2 = 0x00;
 uint16_t holdingregistry1 = 0x00, holdingregistry2 = 0xff;
 
 uint16_t address;
-uint8_t index;
 
 namespace objects {
 namespace input {
@@ -113,6 +117,49 @@ float float_01 = 0.0, float_02 = 0.0;
 Fixed fixed_01 = 0.0, fixed_02 = 0.0;
 }
 }
+
+#ifdef USE_EEPROM
+namespace eeprom {
+gatl::binding::reference<bool, int> coil;
+gatl::binding::reference<uint16_t, int> ui16;
+gatl::binding::reference<int32_t, int> i32;
+gatl::binding::reference<float, int> f;
+gatl::binding::reference<Fixed, int> fixed;
+void create() {
+  int address;
+  address = gatlb::create<bool, int, uint8_t>(coil,
+    0,    // Address
+    2,    // Count
+    1);   // Size
+  gatl::binding::set<bool, int, uint8_t>(coil, 0, &coil1);
+  gatl::binding::set<bool, int, uint8_t>(coil, 1, &coil2);
+  address = gatlb::create<uint16_t, int, uint8_t>(ui16,
+    address,    // Address
+    2,          // Count
+    2);         // Size
+  gatl::binding::set<uint16_t, int, uint8_t>(ui16, 0, &holdingregistry1);
+  gatl::binding::set<uint16_t, int, uint8_t>(ui16, 1, &holdingregistry2);
+  address = gatlb::create<int32_t, int, uint8_t>(i32,
+    address,  // Address
+    2,        // Count
+    4);       // Size
+  gatlb::set<int32_t, int, uint8_t>(i32, 0, &objects::holding::i32_01);
+  gatlb::set<int32_t, int, uint8_t>(i32, 1, &objects::holding::i32_02);
+  address = gatlb::create<float, int, uint8_t>(f,
+    address,  // Address
+    2,        // Count
+    4);       // Size
+  gatlb::set<float, int, uint8_t>(f, 0, &objects::holding::float_01);
+  gatlb::set<float, int, uint8_t>(f, 1, &objects::holding::float_02);
+  lastaddress::holding = gatlb::create<Fixed, int, uint8_t>(fixed,
+    address,  // Address
+    2,        // Count
+    4);       // Size
+  gatlb::set<Fixed, int, uint8_t>(fixed, 0, &objects::holding::fixed_01);
+  gatlb::set<Fixed, int, uint8_t>(fixed, 1, &objects::holding::fixed_02);
+}
+}
+#endif
 
 namespace binding {
 gatl::binding::reference<bool> coil;
@@ -196,7 +243,7 @@ void create() {
 }
 }
 
-static uint8_t result;
+ uint8_t result;
 
 Modbus slave(MODBUS_SLAVE_ID, PIN_RS485_MODBUS_TE);
 
@@ -209,7 +256,7 @@ uint8_t read_coils(
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
   result = STATUS_OK;
-  if (startaddress + length < lastaddress::coil) {
+  if (startaddress + length <= lastaddress::coil) {
     gatl::modbus::coil::access(binding::coil, slave, startaddress, length);
   } else {
     result = STATUS_ILLEGAL_DATA_ADDRESS;
@@ -229,7 +276,7 @@ uint8_t read_discrete_inputs(
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
   result = STATUS_OK;
-  if (startaddress + length < lastaddress::discrete) {
+  if (startaddress + length <= lastaddress::discrete) {
     gatl::modbus::discrete::access(binding::discrete, slave, startaddress, length);
   }
   else {
@@ -250,7 +297,7 @@ uint8_t read_holding_registers(
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
   result = STATUS_OK;
-  if (startaddress + length < lastaddress::holding) {
+  if (startaddress + length <= lastaddress::holding) {
     gatl::modbus::registers::access(
       binding::holding::ui16,
       slave,
@@ -289,7 +336,7 @@ uint8_t read_input_registers(
   digitalWrite(PIN_LED_MODBUS_READ, HIGH);
 #endif
   result = STATUS_OK;
-  if (startaddress + length < lastaddress::input) {
+  if (startaddress + length <= lastaddress::input) {
     gatl::modbus::registers::access(
       binding::input::ui16,
       slave,
@@ -329,32 +376,39 @@ uint8_t write_coils(
 #endif
   result = STATUS_OK;
   bool show = false;
-  if (startaddress + length < lastaddress::coil) {
+  bool previous1 = coil1, previous2 = coil2;
+  if (startaddress + length <= lastaddress::coil) {
     gatl::modbus::coil::assign(binding::coil, slave, startaddress, length, from, to);
-    if (from == 0) {
-      show = true;
-#ifdef PIN_COIL_LED_1
-      if (!coil1) {
-        digitalWrite(PIN_COIL_LED_1, LOW);
-      }
-#endif
-    }
-    if (to == 2) {
-      show = true;
-#ifdef PIN_COIL_LED_2
-      if (!coil2) {
-        digitalWrite(PIN_COIL_LED_2, LOW);
-      }
-#endif
-    }
   } else {
     result = STATUS_ILLEGAL_DATA_ADDRESS;
   }
-  if (show) {
+  if (previous1 != coil1) {
+    display::show::coil(display::line::one, coil1);
+#ifdef PIN_COIL_LED_1
+    if (!coil1) {
+      digitalWrite(PIN_COIL_LED_1, LOW);
+    }
+#endif
+  }
+  if (previous2 != coil2) {
+    display::show::coil(display::line::two, coil2);
+#ifdef PIN_COIL_LED_2
+    if (!coil2) {
+      digitalWrite(PIN_COIL_LED_2, LOW);
+    }
+#endif
+  }
+  if (previous1 != coil1 || previous2 != coil2) {
     display::show::display(true);
   }
 #ifdef PIN_LED_MODBUS_WRITE
   digitalWrite(PIN_LED_MODBUS_WRITE, LOW);
+#endif
+#ifdef USE_EEPROM
+  gatl::eeprom::write(eeprom::coil);
+#else
+  EEPROM.write(0, coil1);
+  EEPROM.write(1, coil2);
 #endif
   return result;
 }
@@ -369,7 +423,7 @@ uint8_t write_holding_registers(
 #endif
   result = STATUS_OK;
   uint16_t previous1 = holdingregistry1, previous2 = holdingregistry2;
-  if (startaddress + length < lastaddress::holding) {
+  if (startaddress + length <= lastaddress::holding) {
     gatl::modbus::registers::assign(
       binding::holding::ui16,
       slave,
@@ -413,9 +467,17 @@ uint8_t write_holding_registers(
       analogWrite(PIN_HOLDING_REGISTRY_2, holdingregistry2);
     }
 #endif
+#ifdef USE_EEPROM
+    gatl::eeprom::write(eeprom::ui16);
+#endif
   }
 #ifdef PIN_LED_MODBUS_WRITE
   digitalWrite(PIN_LED_MODBUS_WRITE, LOW);
+#endif
+#ifdef USE_EEPROM
+  gatl::eeprom::write(eeprom::i32);
+  gatl::eeprom::write(eeprom::f);
+  gatl::eeprom::write(eeprom::fixed);
 #endif
   return result;
 }
@@ -427,6 +489,12 @@ namespace g = ::gos;
 namespace gm = ::gos::modbus;
 
 void setup() {
+#ifdef USE_EEPROM
+  g::modbus::eeprom::create();
+#else
+  g::modbus::coil1 = EEPROM.read(0) != 0;
+  g::modbus::coil2 = EEPROM.read(1) != 0;
+#endif
   g::modbus::binding::create();
 
   gm::display::begin();
@@ -442,6 +510,14 @@ void setup() {
       delay(10);
     }
   }
+
+#ifdef USE_EEPROM
+  gatl::eeprom::read(g::modbus::eeprom::coil);
+  gatl::eeprom::read(g::modbus::eeprom::ui16);
+  gatl::eeprom::read(g::modbus::eeprom::i32);
+  gatl::eeprom::read(g::modbus::eeprom::f);
+  gatl::eeprom::read(g::modbus::eeprom::fixed);
+#endif
 
 #ifdef PIN_HOLDING_REGISTRY_1
   ledholdingregistry1.initialize();
@@ -614,8 +690,7 @@ void coil(const line& line, const bool& status) {
       TEXT_COIL_HIGH,
       sizeof(TEXT_COIL_HIGH),
       &details::ida);
-  }
-  else {
+  } else {
     ::gos::atl::format::message(
       *buffer,
       TEXT_COIL_LOW,
